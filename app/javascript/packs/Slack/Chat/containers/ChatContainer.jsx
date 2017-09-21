@@ -7,11 +7,12 @@ import ChannelForm from "../components/Forms/ChannelForm"
  
 import UsersAPI from "../services/UsersAPI"
 import ChannelsAPI from "../services/ChannelsAPI"
+import MessagesAPI from "../services/MessagesAPI"
 
 export default class ChatContainer extends Component {
   constructor() {
     super()
-    this.state = { users: [], channels: [] }
+    this.state = { users: [], channels: [], messages: [], currentChannel: {} }
   }
 
   componentWillMount() {
@@ -24,6 +25,12 @@ export default class ChatContainer extends Component {
     ChannelsAPI.fetchAll({
       onSuccess: (response) => {
         this.setState({ channels: response.data } )
+      }
+    })
+
+    MessagesAPI.fetchAll({
+      onSuccess: (response) => {
+        this.setState({ messages: response.data })
       }
     })
   }
@@ -50,12 +57,29 @@ export default class ChatContainer extends Component {
     }
   }
 
+  selectChannel(current) {
+    const { channels } =  this.state
+    let channel = channels.find( (member) => { return member.name === current })
+    this.setState({ currentChannel: channel })
+  }
+
+  sendMessage(params) {
+    const { messages } = this.state
+
+    MessagesAPI.create({
+      data: params,
+      onSuccess: (response) => {
+        this.setState({ messages: messages.concat(response.data) })
+      }
+    })
+  }
+
   render() {
-    const { users, channels } = this.state
+    const { users, channels, messages, currentChannel } = this.state
     const publicChannels = channels.filter( (member) => { return member.type === "PublicChannel" } )
     const privateChannels = channels.filter( (member) => { return member.type === "PrivateChannel" } )
     const groupChannels = channels.filter( (member) => { return member.type === "GroupChannel" } )
-
+    let messagesChannel = messages.filter( (member) => { return member.receiveable_id == currentChannel.id } )
     let formRef, contentRef
 
     return (
@@ -77,18 +101,25 @@ export default class ChatContainer extends Component {
               onClickCreateChannel={ () => { this.toggleChannelForm(formRef, contentRef) } }
               icon={ "hashtags" }
               type={ "Public Channels" }
-              items={ publicChannels }/>
+              items={ publicChannels }
+              onSelectChannel={ (value) => { this.selectChannel(value) } }/>
             <List 
               onClickCreateChannel={ () => { this.toggleChannelForm(formRef, contentRef) } }
               icon={ "lock" }
               type={ "Private Channels" }
-              items={ privateChannels }/>
+              items={ privateChannels }
+              onSelectChannel={ (value) => { this.selectChannel(value) } }/>
             <List 
               type={ "Direct Messages" }
               icon={ "circle" }
-              items={ users }/>
+              items={ users }
+              onSelectChannel={ (value) => { this.selectChannel(value) } }/>
           </aside>
           <article>
+            <Message
+              currentChannel={ currentChannel }
+              onSendMessage={ (value) => { this.sendMessage(value) } }
+              messages={ messagesChannel }/>
           </article>
         </div>
       </div>
